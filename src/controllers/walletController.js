@@ -5,8 +5,11 @@ class WalletController {
 		this.store = props.store
 		this.currentWallet = null
 
-    this.connector = new TonConnectSDK.TonConnect();
-    this.tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    this.connector = new TonConnectSDK.TonConnect({
+      walletsListSource: '/wallets-v2.json',
+      walletsListCacheTTLMs: 0
+    });
+    this.tonConnectUI = new ION_CONNECT_UI.TonConnectUI({
       connector: this.connector,
       buttonRootId: 'connect-wallet-button'
     });
@@ -26,50 +29,25 @@ class WalletController {
       }
     };
 
-    const unsubscribe = this.tonConnectUI.onStatusChange(
-      (walletInfo) => {
-				testnetController.update().then(() => {
-					this.currentWallet = this.tonConnectUI.wallet
-					this.updateMyDomainController();
-				});
-      }
-    );
+    this.tonConnectUI.onStatusChange((walletInfo) => {
+      this.currentWallet = this.tonConnectUI.wallet
+    });
 
-    this.tonConnectUI.connectionRestored.then(restored => {
-			if (!restored) {
-				myDomainsController.destructor();
-				return;
+    this.tonConnectUI.connectionRestored.then((restored) => {
+      if (restored) {
+        this.currentWallet = this.tonConnectUI.wallet
       }
-
-			testnetController.update().then(() => {
-				this.currentWallet = this.tonConnectUI.wallet
-				this.updateMyDomainController();
-			});
     });
   }
 
-	updateMyDomainController() {
-		if (!this.currentWallet) {
-			myDomainsController.destructor();
-			return;
-		}
-
-		if (myDomainsController.isInitialized) {
-			return;
-		}
-
-		const addr = this.currentWallet.account.address;
-		myDomainsController.initialize(addr);
-	}
-
   async sendTransaction(
-		transaction, 
+		transaction,
 		onPaymentSuccess = () => {},
-		onPaymentRejection = () => {}, 
+		onPaymentRejection = () => {},
 		onPaymentError = () => {}
 	) {
 		try {
-			const result = await this.tonConnectUI.sendTransaction(transaction)
+			await this.tonConnectUI.sendTransaction(transaction)
 				.then(() => onPaymentSuccess());
 
 		} catch (e) {
@@ -95,10 +73,6 @@ class WalletController {
 
 	isLoggedInSync() {
 		return !!this.tonConnectUI.connected
-	}
-
-  async isTestnet() {
-		return this.tonConnectUI.account.chain === CHAIN.TESTNET
 	}
 
   getCurrentWallet() {
@@ -130,7 +104,7 @@ class WalletController {
 			return '';
 		}
 
-		return TonConnectSDK.toUserFriendlyAddress(address, chain === CHAIN.TESTNET);
+		return TonConnectSDK.toUserFriendlyAddress(address, false);
 	}
 
 }

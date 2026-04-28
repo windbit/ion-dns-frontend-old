@@ -16,7 +16,7 @@ class ThemeController {
 	}
 
 	getTheme() {
-		return window.localStorage.getItem('theme') || THEME_LIGHT
+		return window.localStorage.getItem('theme') || THEME_DARK
 	}
 
 	toggle() {

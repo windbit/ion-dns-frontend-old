@@ -2,64 +2,42 @@ MS_IN_ONE_LEAP_YEAR = 31622400000
 SEC_IN_ONE_MONTH = 2592000
 
 const DOMAIN_RENEW_LIMIT_IN_DAYS = 180;
-const RENEW_DOMAIN_PRICE = 0.015;
-const MANAGE_DOMAIN_PRICE = 0.05;
+const RENEW_DOMAIN_PRICE = 0.075;
+const MANAGE_DOMAIN_PRICE = 0.25;
 
 let LOCALE_CONTROLLER = new LocaleController({store, localeDict: 'index'}).init()
 
 $('#navInputElement').placeholder = store.localeDict.start_input_placeholder
 $('#startInputElement').placeholder = store.localeDict.start_input_placeholder
 
-const IS_TESTNET = window.location.href.indexOf('testnet=true') > -1
+const AUCTION_START_TIME = 1776589200 // Sun 19 Apr 2026 09:00:00 GMT — соответствует ion-dns-contract/contracts/dns-utils.fc
 
-const AUCTION_START_TIME = IS_TESTNET ? 1659125865 : 1659171600
+const explorerUrl = ION_EXPLORER_ENDPOINT
 
-const tonscanUrl = IS_TESTNET ? TONSCAN_ENDPOINT_TESTNET : TONSCAN_ENDPOINT
-
-const toncenterUrl = IS_TESTNET
-    ? TONCENTER_ENDPOINT_TESTNET
-    : TONCENTER_ENDPOINT
-
-const tonRootAddress = IS_TESTNET
-    ? new TonWeb.Address(
-        TON_ROOT_ADDRESS_TESTNET
-    ).toString(true, true, true, true)
-    : TON_ROOT_ADDRESS // .ton root smart contract in bounceable form
+const ionDnsCollectionAddress = ION_DNS_COLLECTION_ADDRESS
 
 const tonweb = new TonWeb(
-    new TonWeb.HttpProvider(toncenterUrl, {
-        apiKey: IS_TESTNET
-            ? TONCENTER_API_KEY_TESTNET
-            : TONCENTER_API_KEY,
-    })
+    new TonWeb.HttpProvider(ION_RPC_ENDPOINT, ION_RPC_API_KEY ? { apiKey: ION_RPC_API_KEY } : {})
 )
 
 const walletController = new WalletController({store})
-const myDomainsController = new MyDomainsController();
-const testnetController = new TestnetController()
 
 makePageVisible()
 
 const dnsCollection = new TonWeb.dns.DnsCollection(tonweb.provider, {
-    address: tonRootAddress,
+    address: ionDnsCollectionAddress,
 })
-
-if (IS_TESTNET) {
-    toggle('.testnet-badge', true, 'flex')
-}
 
 // UI
 let updateIntervalId = 0
 let auctionTimerIntervalId = 0
-let freeQrUrl = null
-let auctionQrUrl = null
 let currentDomain = null
 let currentOwner = null
 let currentDnsItem = null
 let previousBid = null
 
 const removeListeners = {}
-const DEFAULT_CARETE_HELPER_TEXT = '.ton'
+const DEFAULT_CARETE_HELPER_TEXT = '.ion'
 const OFFSET_BETWEEN_TEXT_AND_CARRETE = 1
 
 const FREE_DOMAIN_TYPE = 'free'
@@ -74,8 +52,6 @@ function isDomainFree(domainType){
 const clear = () => {
     clearInterval(updateIntervalId)
     clearInterval(auctionTimerIntervalId)
-    freeQrUrl = null
-    auctionQrUrl = null
     currentDomain = null
     currentOwner = null
     currentDnsItem = null
@@ -87,14 +63,14 @@ const clear = () => {
 
 $('.badge__dns').addEventListener('click', () => {
     clear()
-    window.history.pushState('', 'TON DNS ', '#')
+    window.history.pushState('', 'ION DNS ', '#')
     setScreen('startScreen')
 })
 
 $('.badge__dns-mobile').addEventListener('click', () => {
     clear()
     closeMenu()
-    window.history.pushState('', 'TON DNS ', '#')
+    window.history.pushState('', 'ION DNS ', '#')
     setScreen('startScreen')
 })
 
@@ -148,7 +124,7 @@ const setDomain = (domain, isTimerMounted) => {
             true,
             true,
             true,
-            IS_TESTNET
+            false
         )
         const accountInfo = await tonweb.provider.getAddressInfo(
             domainAddressString
@@ -187,29 +163,19 @@ const setDomain = (domain, isTimerMounted) => {
                 renderFreeDomain(domain)
                 setScreen('freeDomainScreen')
             } else if (ownerAddress) {
-                currentOwner = ownerAddress.toString(false, true, true, IS_TESTNET);
+                currentOwner = ownerAddress.toString(false, true, true, false);
                 $('#manageDomainGoBackBtn').style.display = 'none';
                 const isTakenByUser = walletController.getAccountAddress() === currentOwner;
-
-                // GG INTEGRATION
-                let ggDomainData = null;
-                let ggDomainState = null;
-
-                hideGGElements(domain);
-                // GG INTEGRATION
 
                 if (isTakenByUser) {
                     $('#infoBtn').style.display = 'none';
                     $('#manageDomainBtn').style.display = 'inline-flex';
 
-                    // ---
-                    // Always allow to renew a domain if it's expried OR
-                    // allow to renew it only if the expiry date is within the specified limit
                     const lastFillUpTime = await dnsItem.methods.getLastFillUpTime();
                     const expiryDate = new Date(lastFillUpTime * 1000 + MS_IN_ONE_LEAP_YEAR);
 
                     const isDomainExpired = expiryDate.getTime() <= new Date().getTime();
-                    const { days } = getDifferenceBetweenDates(expiryDate, new Date()); // always returns absolute difference
+                    const { days } = getDifferenceBetweenDates(expiryDate, new Date());
 
                     const isDomainRenewable = isDomainExpired || days <= DOMAIN_RENEW_LIMIT_IN_DAYS;
                     if (isDomainRenewable) {
@@ -217,21 +183,10 @@ const setDomain = (domain, isTimerMounted) => {
                     } else {
                         $('#renewDomainButton').style.display = 'none';
                     }
-                    // ---
                 } else {
                     $('#infoBtn').style.display = 'inline-flex';
                     $('#manageDomainBtn').style.display = 'none';
                     $('#renewDomainButton').style.display = 'none';
-
-                    // GG INTEGRATION
-                    const lastFillUpTime = await dnsItem.methods.getLastFillUpTime();
-                    const expiryDate = new Date(lastFillUpTime * 1000 + MS_IN_ONE_LEAP_YEAR);
-                    const isDomainExpired = expiryDate.getTime() <= new Date().getTime();
-
-                    if (!isDomainExpired) {
-                        ggDomainData = await getGGDomainData(domainAddressString);
-                    }
-                    // GG INTEGRATION
                 }
 
                 currentDnsItem = dnsItem
@@ -239,24 +194,12 @@ const setDomain = (domain, isTimerMounted) => {
                 renderBusyDomain(
                     domain,
                     domainAddressString,
-                    ownerAddress.toString(true, true, true, IS_TESTNET),
+                    ownerAddress.toString(true, true, true, false),
                     lastFillUpTime,
                     isTakenByUser
                 )
 
-                // GG INTEGRATION
-                if (!!ggDomainData) {
-                    renderGGElements(ggDomainData, domain);
-
-                    if (!!ggDomainData.sale) {
-                        ggDomainState = 'onSale';
-                    } else if (!!ggDomainData.auction) {
-                        ggDomainState = 'onAuction';
-                    }
-                }
-                // GG INTEGRATION
-
-                setScreen('busyDomainScreen', ggDomainState)
+                setScreen('busyDomainScreen')
             } else {
                 storeDomainStatus('auction')
                 renderAuctionDomain(domain, domainAddressString, auctionInfo)
@@ -266,8 +209,6 @@ const setDomain = (domain, isTimerMounted) => {
     }
 
     clearInterval(auctionTimerIntervalId)
-    freeQrUrl = null
-    auctionQrUrl = null
     currentOwner = null
     currentDnsItem = null
     $('#busyDomainScreen').classList.remove('edit-expand')
@@ -298,20 +239,15 @@ function closeBidModal() {
     toggle('.bid__modal--backdrop', false, 'flex', true, 200)
     toggle('.bid__modal', false)
     toggle('.bid__modal--first__step', false)
-    toggle('.bid__modal--second__step', false)
 
     $('.bid__modal').style.justifyContent = 'center'
-    $('#otherPaymentsMethods svg').classList.remove('rotate')
-    $('#otherPaymentsMethodsContainer').classList.remove('show')
-    $('#otherPaymentsMethodsContainer').style.display = 'none'
     $('body').classList.remove('scroll__disabled')
-    $('#otherPaymentsMethods').removeEventListener('click', renderOtherPaymentsMethods)
 }
 
 const onInput = (e) => {
     if (e.key === 'Enter') {
         let domain = e.target.value.toLowerCase().trim()
-        if (domain.endsWith('.ton')) {
+        if (domain.endsWith('.ion')) {
             domain = domain.substring(0, domain.length - 4)
         }
         const error = validateDomain(domain)
@@ -371,7 +307,7 @@ const processUrl = () => {
                 setScreen('myDomainsView');
                 return;
             } else {
-                window.history.pushState('', 'TON DNS ', '#')
+                window.history.pushState('', 'ION DNS ', '#')
             }
         }
 
@@ -422,7 +358,7 @@ const renderAuctionDomain = (domain, domainItemAddress, auctionInfo) => {
         true,
         true,
         true,
-        IS_TESTNET
+        false
     )
 
     const prevDate = $('#auction-bid-flip-clock-container').dataset.endDate
@@ -664,7 +600,6 @@ const attachPaymentModalListeners = (
     if (removeListeners[modalButton]) {
         removeListeners[modalButton]()
     }
-    const showOtherPaymentMethods = $('#otherPaymentsMethods')
 
     const togglePaymentModalOnClick = (e) => {
         e.preventDefault()
@@ -678,11 +613,9 @@ const attachPaymentModalListeners = (
     }
 
     $(modalButton).addEventListener('click', togglePaymentModalOnClick, false)
-    showOtherPaymentMethods.addEventListener('click', renderOtherPaymentsMethods)
 
     removeListeners[modalButton] = () => {
         $(modalButton).removeEventListener('click', togglePaymentModalOnClick, false)
-        showOtherPaymentMethods.removeEventListener('click', renderOtherPaymentsMethods)
     }
 }
 
@@ -696,7 +629,7 @@ function togglePaymentModal({
 }) {
     let localPrice = price;
     let paymentStatus = null;
-    const destinationAddress = address || tonRootAddress;
+    const destinationAddress = address || ionDnsCollectionAddress;
     const bidModalInput = $("#bid__modal--bid__input")
     const submitStepButton = $("#bid__modal--submit__step")
     const submitPriceLabel = $("#bid__modal--submit__price")
@@ -705,11 +638,9 @@ function togglePaymentModal({
     const backdrop = $('.bid__modal--backdrop')
     const paymentLoadingWallet = $('#payment-loading-wallet')
     const paymentCloseButton = $('#paymentCloseButton')
-    const qrContainer = $('#freeQr')
     const paymentLottieLoading = $('#paymentLottieLoading')
     const paymentLottieSuccess = $('#paymentLottieSuccess')
     const paymentLottieFailure = $('#paymentLottieFailure')
-    const showOtherPaymentMethods = $('#otherPaymentsMethods')
 
     adjustPaymentModalCaption(modalType)
 
@@ -760,14 +691,10 @@ function togglePaymentModal({
         hideKeyboard()
 
         toggle('.bid__modal--first__step', false)
-        toggle('.bid__modal--second__step', false)
         toggle('.bid__modal--payment', false)
         toggle('.bid__modal', false)
         toggle('.bid__modal--backdrop', false, 'flex', true, 200)
         $('.bid__modal').style.justifyContent = 'center'
-        $('#otherPaymentsMethodsContainer').classList.remove('show')
-        $('#otherPaymentsMethodsContainer').style.display = 'none'
-        $('#otherPaymentsMethods svg').classList.remove('rotate')
         $('body').classList.remove('scroll__disabled')
 
 
@@ -784,7 +711,6 @@ function togglePaymentModal({
         toggle('#payment-message-rejection', false)
         toggle('#payment-message-error', false)
 
-        qrContainer.innerHTML = ''
         paymentStatus = null
 
         bidModalInput.removeEventListener('input', handleBidInput);
@@ -818,7 +744,6 @@ function togglePaymentModal({
         toggle('.bid__modal--backdrop', true)
         toggle('.bid__modal', true)
         toggle('.bid__modal--first__step', true)
-        toggle('.bid__modal--second__step', false)
         toggle('.bid__modal--payment', false)
         $('body').classList.add('scroll__disabled')
         pushModalInfoToBrowserHistory('bid__modal')
@@ -828,7 +753,7 @@ function togglePaymentModal({
     const renderFirstStep = () => {
         const svgNode = submitPriceLabel.parentNode.querySelector('svg');
         svgNode.parentNode.querySelector('svg').style.display = 'block';
-        $('#domainName--bid__modal').innerText = domain + '.ton'
+        $('#domainName--bid__modal').innerText = domain + '.ion'
         bidModalInput.setAttribute('value', localPrice);
         bidModalInput.value = localPrice;
         mask.updateValue()
@@ -853,19 +778,25 @@ function togglePaymentModal({
     };
 
     const checkIfLoggedIn = async () => {
-        const isLoggedIn = await walletController.isLoggedIn()
-
-        if (isLoggedIn) {
+        if (await walletController.isLoggedIn()) {
             handlePaymentConfirmation()
-        } else {
-            renderSecondStep()
+            return
         }
+
+        // Кошелёк не подключён — открываем модалку коннекта и после успешного подключения автоматически шлём транзакцию
+        const unsub = walletController.tonConnectUI.onStatusChange((wallet) => {
+            if (wallet) {
+                unsub()
+                handlePaymentConfirmation()
+            }
+        })
+        walletController.tonConnectUI.openModal()
     }
 
     const handlePaymentConfirmation = async () => {
         renderPaymentLoading()
 
-        const addressString = addressToString(destinationAddress, IS_TESTNET);
+        const addressString = addressToString(destinationAddress);
         const message = domain;
 
         let payload = payloadIn;
@@ -1002,84 +933,12 @@ function togglePaymentModal({
         }
     }
 
-    const renderSecondStep = () => {
-        updateBidModalPaymentData()
-        prepareLinks();
-
-        isDomainFree(domainType)
-            ? analyticService.sendEvent({type: 'place_an_initial_bid'})
-            : analyticService.sendEvent({type: 'place_a_bid'})
-
-        $('.bid__modal').style.justifyContent = 'flex-start'
-        toggle('.bid__modal--first__step', false)
-        toggle('.bid__modal--second__step', true)
-
-        renderQr('#freeQr', 'https://app.tonkeeper.com/transfer/' + destinationAddress + '?text=' + encodeURIComponent(domain) + '&amount=' + encodeURIComponent(new BigNumber(localPrice).multipliedBy(1000000000)))
-
-        setAddress($('#transactionAddress'), destinationAddress)
-
-        showOtherPaymentMethods.removeEventListener('click', renderOtherPaymentsMethods)
-        showOtherPaymentMethods.addEventListener('click', renderOtherPaymentsMethods)
-    }
-
     const updateBidModalPaymentData = () => {
-        $('#domainName--bid__modal--payment').innerText = domain + '.ton'
-        $('#freeComment').innerText = domain
-        $('#freeComment').dataset.name = domain
-
-        $('#bidPrice').innerText = formatNumber(localPrice, false)
+        $('#domainName--bid__modal--payment').innerText = domain + '.ion'
         $('#bidPrice-payment-loading').innerText = formatNumber(localPrice, false)
     }
 
-    const prepareLinks = () => {
-        const isExtensionInstalled = !isMobile() && window.ton;
-        const buyUrl = 'ton://transfer/' + destinationAddress + '?text=' + encodeURIComponent(domain) + '&amount=' + encodeURIComponent(new BigNumber(localPrice).multipliedBy(1000000000));
-
-        if (isExtensionInstalled) {
-            $('#freeBtn').href = buyUrl;
-        } else {
-            $('#freeBtn').href = 'https://app.tonkeeper.com/transfer/' + destinationAddress + '?text=' + encodeURIComponent(domain) + '&amount=' + encodeURIComponent(new BigNumber(localPrice).multipliedBy(1000000000));
-        }
-
-        if (isMobile()) {
-            $('#freeBtn').href = buyUrl;
-        }
-
-        $('#tonkeeperButton').href = 'https://app.tonkeeper.com/transfer/' + destinationAddress + '?text=' + encodeURIComponent(domain) + '&amount=' + encodeURIComponent(new BigNumber(localPrice).multipliedBy(1000000000));
-        $('#copyLinkbutton').setAttribute('address', buyUrl);
-    }
-    
     openPaymentModal();
-}
-
-let otherPaymentsTimerId = null;
-function renderOtherPaymentsMethods() {
-    const svgArrow = $('#otherPaymentsMethods svg')
-    const otherPaymentsContainer = $('#otherPaymentsMethodsContainer')
-
-    if (svgArrow.classList.contains('rotate')) {
-        svgArrow.classList.remove('rotate')
-    } else {
-        svgArrow.classList.add('rotate')
-    }
-
-    if (otherPaymentsContainer.classList.contains('show')) {
-        otherPaymentsContainer.classList.remove('show')
-
-
-        otherPaymentsTimerId && clearTimeout(otherPaymentsTimerId)
-        otherPaymentsTimerId = setTimeout(() => {
-            otherPaymentsMethodsContainer.style.display = 'none'
-        }, 300)
-    } else {
-        otherPaymentsMethodsContainer.style.display = ''
-
-        otherPaymentsTimerId && clearTimeout(otherPaymentsTimerId)
-        otherPaymentsTimerId = setTimeout(() => {
-            otherPaymentsContainer.classList.add('show')
-            otherPaymentsContainer.scrollIntoView({behavior: 'smooth', block: 'start'})
-        }, 100)
-    }
 }
 
 const renderConvertedTonPrice = (node, priceToCovert) => {
@@ -1171,13 +1030,13 @@ const toggleManageDomainForm = async (domain, dnsItem) => {
 
         if (domain === currentDomain) {
             $('#editWalletRow input').value = dnsRecordWallet
-                ? dnsRecordWallet.toString(true, true, true, IS_TESTNET)
+                ? dnsRecordWallet.toString(true, true, true, false)
                 : ''
             $('#editAdnlRow input').value = dnsRecordSite ? dnsRecordSite.toHex() : ''
             $('#siteStorage').checked = isSiteInStorage
             $('#editStorageRow input').value = dnsRecordStorage ? dnsRecordStorage.toHex() : ''
             $('#editResolverRow input').value = dnsRecordResolver
-                ? dnsRecordResolver.toString(true, true, true, IS_TESTNET)
+                ? dnsRecordResolver.toString(true, true, true, false)
                 : ''
 
             const setTx = async (btnToOpenModalId, key, value) => {
@@ -1186,7 +1045,7 @@ const toggleManageDomainForm = async (domain, dnsItem) => {
                     true,
                     true,
                     true,
-                    IS_TESTNET
+                    false
                 );
 
                 const payload = await getManageDomainPayload(key, value);
@@ -1309,89 +1168,6 @@ $(".reset__input--icon").addEventListener('click', (e) => {
     resetError($('.start-error'))
 })
 
-// GG INTEGRATION
-function getGGUIData() {
-    return {
-        ggHiddenClassName: 'gg__hidden',
-        ggElements: {
-            ggSalePriceRow: $('#ggSalePriceRow'),
-            ggAuctionMinBidRow: $('#ggAuctionMinBidRow'),
-            ggAuctionMaxBidRow: $('#ggAuctionMaxBidRow'),
-            ggBuyBtn: $('#ggBuyBtn'),
-            ggPlaceBidBtn: $('#ggPlaceBidBtn'),
-            ggMakeOfferBtn: $('#ggMakeOfferBtn'),
-        }
-    };
-}
-
-function hideGGElements(domain) {
-    const { ggHiddenClassName, ggElements } = getGGUIData();
-
-    Object.values(ggElements).forEach((node) => {
-        if (!!node && !node.classList.contains(ggHiddenClassName) && node.dataset.domain !== domain) {
-            node.classList.add(ggHiddenClassName);
-        }
-    })
-}
-
-function renderGGElements(ggDomainData, domain) {
-    const { ggHiddenClassName, ggElements } = getGGUIData();
-    const {
-        ggSalePriceRow,
-        ggAuctionMinBidRow,
-        ggAuctionMaxBidRow,
-        ggBuyBtn,
-        ggPlaceBidBtn,
-        ggMakeOfferBtn,
-    } = ggElements;
-    const ggPrimaryBtnClassName = getBtnClassName('primary');
-    const ggOutlineBtnClassName = getBtnClassName('outline');
-    const ggTertiaryBtnClassName = getBtnClassName('tertiary');
-
-    ggMakeOfferBtn.setAttribute('href', ggDomainData.make_offer_url);
-    ggMakeOfferBtn.onclick = function () {
-        analyticService.sendEvent({ type: 'make_offer_click' });
-    };
-
-    if (!!ggDomainData.sale) {
-        $('#ggSalePrice').innerText = ggDomainData.sale.price.ton;
-        $('#ggSalePriceConverted').innerText = ggDomainData.sale.price.usd;
-        ggSalePriceRow.classList.remove(ggHiddenClassName);
-        ggBuyBtn.setAttribute('href', ggDomainData.sale.buy_url);
-        ggBuyBtn.className = ggPrimaryBtnClassName;
-        ggMakeOfferBtn.className = ggOutlineBtnClassName;
-    } else if (!!ggDomainData.auction) {
-        $('#ggAuctionMinBid').innerText = ggDomainData.auction.min_bid.ton;
-        $('#ggAuctionMinBidConverted').innerText = ggDomainData.auction.min_bid.usd;
-        ggAuctionMinBidRow.classList.remove(ggHiddenClassName);
-        ggPlaceBidBtn.setAttribute('href', ggDomainData.auction.make_bid_url);
-
-        if (!!ggDomainData.auction.max_bid) {
-            $('#ggAuctionMaxBid').innerText = ggDomainData.auction.max_bid.ton;
-            $('#ggAuctionMaxBidConverted').innerText = ggDomainData.auction.max_bid.usd;
-            ggAuctionMaxBidRow.classList.remove(ggHiddenClassName);
-            ggBuyBtn.setAttribute('href', ggDomainData.auction.buy_now_url);
-            ggBuyBtn.className = ggPrimaryBtnClassName;
-            ggPlaceBidBtn.className = ggOutlineBtnClassName;
-            ggMakeOfferBtn.className = ggTertiaryBtnClassName;
-        } else {
-            ggPlaceBidBtn.className = ggPrimaryBtnClassName;
-            ggMakeOfferBtn.className = ggOutlineBtnClassName;
-        }
-    } else {
-        ggMakeOfferBtn.className = ggPrimaryBtnClassName;
-    }
-
-    Object.values(ggElements).forEach((element) => {
-        element.setAttribute('data-domain', domain);
-    });
-
-    function getBtnClassName(btnStyle) {
-        return `btn gg__btn gg__btn__${btnStyle}`;
-    }
-}
-// GG INTEGRATION
-
 // COMMON
 var oldStartInputValue = '';
 
@@ -1451,40 +1227,11 @@ document.querySelectorAll('.copy__addr').forEach((btn) => {
     })
 })
 
-let prevInterval = null;
-
-document.querySelector('#copyLinkbutton').addEventListener('click', () => {
-    copyToClipboard(
-        $('#copyLinkbutton').getAttribute('address'),
-        null,
-        false
-    ).then(() => {
-        if (prevInterval) {
-            return;
-        }
-
-        $('#copyLinkbutton').classList.add('copied')
-
-        prevInterval = setTimeout(() => {
-            $('#copyLinkbutton').classList.remove('copied')
-
-            prevInterval = null;
-        }, 1000)
-    });
-})
-
-document.querySelector('.copy__name').addEventListener('click', (e) => {
-    copyToClipboard(
-        document.getElementById('freeComment').dataset.name,
-        e.target,
-    );
-})
-
 document.querySelectorAll('.addr').forEach((node) => {
     node.addEventListener('click', e => {
         e.preventDefault()
         e.stopPropagation()
-        window.open(tonscanUrl + '/address/' + node.dataset.dataAddress, '_blank')
+        window.open(explorerUrl + '/address/' + node.dataset.dataAddress, '_blank')
     })
 })
 

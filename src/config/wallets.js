@@ -1,12 +1,12 @@
-const THEME = TON_CONNECT_UI.THEME;
+const THEME = ION_CONNECT_UI.THEME;
 
 const COLORS_SET = {
 	[THEME.LIGHT]: {
 		connectButton: {
-			background: '#0098EA',
+			background: '#6236E7',
 			foreground: '#FFFFFF',
 		},
-		accent: '#0098EA',
+		accent: '#6236E7',
 		icon: {
 			primary: '#232328',
 			secondary: '#98B2BF',
@@ -26,10 +26,10 @@ const COLORS_SET = {
 	},
   [THEME.DARK]: {
 		connectButton: {
-			background: '#0098EA',
+			background: '#6236E7',
 			foreground: '#FFFFFF',
 		},
-		accent: '#F3F3F6',
+		accent: '#7E51FE',
 		icon: {
 			primary: '#E5E5EA',
 			secondary: '#606069',
@@ -38,18 +38,13 @@ const COLORS_SET = {
 			error: '#FF5C5C',
 		},
 		background: {
-			primary: '#232328',
-			secondary: '#2D2D32',
-			segment: '#232328',
+			primary: '#19131C',
+			secondary: '#211A24',
+			segment: '#19131C',
 		},
 		text: {
 			primary: '#F3F3F6',
 			secondary: '#ACACAF',
 		},
 	},
-}
-
-const CHAIN = {
-  MAINNET: "-239",
-  TESTNET: "-3"
 }

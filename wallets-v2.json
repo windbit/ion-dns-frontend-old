@@ -1,0 +1,15 @@
+[
+  {
+    "app_name": "ionmask",
+    "name": "ION Wallet",
+    "image": "/assets/ion-wallet-logo-128.png",
+    "about_url": "https://chromewebstore.google.com/detail/ion-wallet/hfajfpbjlmembfdlhakjmefnbhjddofb",
+    "bridge": [
+      {
+        "type": "js",
+        "key": "ion"
+      }
+    ],
+    "platforms": ["chrome"]
+  }
+]

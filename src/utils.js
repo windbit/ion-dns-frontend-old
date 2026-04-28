@@ -62,17 +62,18 @@ const shortAddress = (address) => {
     return address.substring(0, 8) + '...' + address.substring(address.length - 8);
 }
 
+// Цены в ION (start, end). Соответствуют ion-dns-contract/contracts/dns-utils.fc get_min_price_config.
 const getMinPriceConfig = (domainCharCount) => {
     switch (domainCharCount) {
-        case 4: return ['1000', '100'];
-        case 5: return ['500', '50'];
-        case 6: return ['400', '40'];
-        case 7: return ['300', '30'];
-        case 8: return ['200', '20'];
-        case 9: return ['100', '10'];
-        case 10: return ['50', '5'];
+        case 4: return ['100000', '10000'];
+        case 5: return ['50000', '5000'];
+        case 6: return ['40000', '4000'];
+        case 7: return ['30000', '3000'];
+        case 8: return ['20000', '2000'];
+        case 9: return ['10000', '1000'];
+        case 10: return ['5000', '500'];
         default:
-            return ['10', '1'];
+            return ['1000', '100'];
     }
 }
 
@@ -105,27 +106,10 @@ const getAuctionDuration = () => {
     return auction_start_duration - (auction_start_duration - auction_end_duration) * months / 12;
 }
 
-const API_URL = 'https://ton.org/api/toncoinInfo';
 let ACTIVE_SCREEN;
-let LAST_PRICE_UPDATED_DATE = null
-let LAST_PRICE;
 
-const getCoinPrice = () => {
-    if (LAST_PRICE && LAST_PRICE_UPDATED_DATE && (Date.now() - LAST_PRICE_UPDATED_DATE < 100 * 60 * 5)) { // 30 sec
-        return Promise.resolve(LAST_PRICE)
-    }
-
-    return fetch(API_URL)
-        .then((res) => res.json())
-        .then((res) => {
-            LAST_PRICE = res.price
-            LAST_PRICE_UPDATED_DATE = Date.now()
-
-            return LAST_PRICE
-        }).catch(() => {
-            return 0
-        })
-}
+// TODO: подключить ICE/USD price endpoint, когда появится. Пока null — UI скрывает USD-конвертацию.
+const getCoinPrice = () => Promise.resolve(null)
 
 function debounce(func, timeout = 300){
     let timer;
@@ -139,7 +123,7 @@ const onlyNumbers = (value) => {
     return value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
 }
 
-const setScreen = (name, ggDomainState) => {
+const setScreen = (name) => {
     ACTIVE_SCREEN = name
     toggle('#startScreen', name === 'startScreen')
     if (name === 'startScreen') {
@@ -148,15 +132,14 @@ const setScreen = (name, ggDomainState) => {
         }, 10)
     }
 
-    toggle('#myDomainsView', name === 'myDomainsView', 'flex')
-    toggle('#navInput',!['startScreen', 'myDomainsView'].includes(name), 'flex')
-    toggle('.main', !['startScreen', 'myDomainsView'].includes(name))
+    toggle('#navInput', name !== 'startScreen', 'flex')
+    toggle('.main', name !== 'startScreen')
     toggle('#auctionDomainScreen', name === 'auctionDomainScreen', 'block')
     toggle('#busyDomainScreen', name === 'busyDomainScreen', 'block')
     toggle('#freeDomainScreen', name === 'freeDomainScreen', 'block')
     toggle('#domainLoadingScreen', name === 'domainLoadingScreen', 'block')
-    toggle('#domainStatus', !['main', 'myDomainsView'].includes(name))
-    toggleClassName('nav .container-inner', !['startScreen', 'myDomainsView'].includes(name), 'squizedPadding')
+    toggle('#domainStatus', name !== 'main')
+    toggleClassName('nav .container-inner', name !== 'startScreen', 'squizedPadding')
     toggleClassName('.main', false, 'main--loading')
 
     if (name === 'auctionDomainScreen') {
@@ -168,26 +151,11 @@ const setScreen = (name, ggDomainState) => {
         $('#domainStatus').classList.add('free')
         $('#domainStatus span').innerText = store.localeDict.free
     } else if (name === 'busyDomainScreen') {
-        // bugfix: resetting clock on busy domain screen
         $('#flip-clock-container').dataset.endDate = '';
 
-        // GG INTEGRATION
-        if (ggDomainState === 'onSale') {
-            $('#domainStatus').classList.remove('busy');
-            $('#domainStatus').classList.add('free');
-            $('#domainStatus span').innerText = store.localeDict.gg_sale;
-        } else if (ggDomainState === 'onAuction') {
-            $('#domainStatus').classList.remove('busy');
-            $('#domainStatus').classList.add('free');
-            $('#domainStatus span').innerText = store.localeDict.gg_auction;
-        } else {
-        // GG INTEGRATION
-
-            $('#domainStatus').classList.add('busy')
-            $('#domainStatus').classList.remove('free')
-
-            $('#domainStatus span').innerText = store.localeDict.busy;
-        }
+        $('#domainStatus').classList.add('busy')
+        $('#domainStatus').classList.remove('free')
+        $('#domainStatus span').innerText = store.localeDict.busy;
     }
 }
 
@@ -196,7 +164,7 @@ const setDomainToBrowserHistory = (domain) => {
 
     window.history.pushState(
         domain,
-        'TON DNS - ' + domain,
+        'ION DNS - ' + domain,
         '#' + encodeURIComponent(domain)
     )
 }
@@ -206,37 +174,15 @@ const pushModalInfoToBrowserHistory = (step) => {
 
     window.history.pushState(
         { step },
-        'TON DNS - ' + step,
+        'ION DNS - ' + step,
         `#${domainFromUrl}`,
     )
-}
-
-const renderQr = (name, url, settings = {}) => {
-    const {size = 288, margin = 10} = settings
-    const qrCode = new QRCodeStyling({
-        width: size,
-        height: size,
-        data: url,
-        image: './assets/qr_logo.svg',
-        margin: margin,
-        qrOptions: { typeNumber: '0', mode: 'Byte', errorCorrectionLevel: 'Q' },
-        imageOptions: { hideBackgroundDots: true, imageSize: 0.2, margin: 4 },
-        dotsOptions: { type: 'rounded', color: '#000000' },
-        backgroundOptions: { color: '#F5F7FA' },
-        type: 'svg',
-        cornersSquareOptions: { type: 'extra-rounded', color: '#000000' },
-        cornersDotOptions: { type: 'dot', color: '#000000' },
-    })
-
-    const canvasContainer = $(name)
-    canvasContainer.innerHTML = ''
-    qrCode.append(canvasContainer);
 }
 
 const setDomainName = (domain, node) => {
     node.classList.remove('domain__name--small')
 
-    const nextDomainName = domain + '.ton';
+    const nextDomainName = domain + '.ion';
     if (nextDomainName.length > 20) {
         node.classList.add('domain__name--small')
     }
@@ -562,7 +508,6 @@ function adjustPaymentModalCaption(modalType) {
         $('#bid__modal--submit__step--label_1').innerText = store.localeDict.place_label;
         $('#bid__modal--submit__step--label_2').innerText = store.localeDict.place_label_2;
         $('.bid__modal--payment #domainName--bid__modal--payment').innerText = store.localeDict.place_bid;
-        $('.bid__modal--second__step #domainName--bid__modal--payment').innerText = store.localeDict.place_bid;
 
         $('#payment-message-success .payment__message--title').innerText = store.localeDict.payment_success_header;
         $('#payment-message-success .payment__message--description').innerText = store.localeDict.payment_success_description;
@@ -579,7 +524,6 @@ function adjustPaymentModalCaption(modalType) {
         $('#bid__modal--submit__step--label_1').innerText = store.localeDict.pay;
         $('#bid__modal--submit__step--label_2').innerText = '';
         $('.bid__modal--payment #domainName--bid__modal--payment').innerText = store.localeDict.renew_domain;
-        $('.bid__modal--second__step #domainName--bid__modal--payment').innerText = store.localeDict.renew_domain;
 
         $('#payment-message-success .payment__message--title').innerText = store.localeDict.payment_success_header;
         $('#payment-message-success .payment__message--description').innerText = '';
@@ -596,7 +540,6 @@ function adjustPaymentModalCaption(modalType) {
         $('#bid__modal--submit__step--label_1').innerText = store.localeDict.pay;
         $('#bid__modal--submit__step--label_2').innerText = '';
         $('.bid__modal--payment #domainName--bid__modal--payment').innerText = store.localeDict.manage_domain_payment_caption;
-        $('.bid__modal--second__step #domainName--bid__modal--payment').innerText = store.localeDict.manage_domain_payment_caption;
 
         $('#payment-message-success .payment__message--title').innerText = store.localeDict.payment_success_header;
         $('#payment-message-success .payment__message--description').innerText = '';
@@ -652,13 +595,3 @@ async function getSalePrice(domainName, isTestnet = false) {
     return TonWeb.utils.fromNano(data[0].value.toString());
 }
 
-// GG INTEGRATION
-async function getGGDomainData(domainAddressString) {
-    try {
-        const response = await fetch(`${GG_ENDPOINT}/status/${domainAddressString}`);
-        return await response.json();
-    } catch (e) {
-        return null;
-    }
-}
-// GG INTEGRATION

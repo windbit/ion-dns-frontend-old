@@ -668,7 +668,7 @@ nav .container-inner {
 .badge-icon {
     width: 32px;
     height: 32px;
-    background-image: url("../assets/logo.svg");
+    background-image: url("../assets/logo.png");
     background-repeat: no-repeat;
     background-position: center;
     background-size: contain;
@@ -1065,6 +1065,7 @@ p {
     top: 50%;
     transform: translateY(-50%);
     background: var(--ton-logo-path) center no-repeat;
+    background-size: contain;
 }
 
 #freeComment {
@@ -1485,110 +1486,8 @@ p {
     transition: opacity var(--block--transition);
 }
 
-.webwallet__icon {
-    width: 24px;
-    height: 24px;
-    background: var(--web__wallet__icon) center no-repeat;
-    background-size: contain;
-}
-
-.wallet__connect {
-    position: relative;
-    min-width: 160px;
-    gap: 4px;
-    padding: 12px 20px;
-}
-
-.wallet__connect svg {
-    width: 24px;
-    height: 24px;
-}
-
-#connect-wallet-button-content {
-    display: flex;
-    gap: 4px;
-    padding-right: 4px;
-    align-items: center;
-}
-
-#connect-wallet-button-mobile-content {
-    padding-right: 2px;
-}
-
 #back-to-wallets-list-button {
     margin-top: 24px;
-}
-
-.wallet--wallet_button img {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-}
-
-.wallet__connect:hover {
-    background: var(--accent-hover);
-    color: #fff;
-}
-
-.wallet__connect:has(.wallet__tooltip:hover) {
-    background-color: var(--button--background);
-}
-
-.wallet__tooltip {
-    display: none;
-    box-sizing: border-box;
-    background: var(--background-suggestions);
-    position: absolute;
-    z-index: 4;
-    top: 65px;
-    border-radius: 16px;
-    transition: opacity var(--block--transition);
-    filter: drop-shadow(0px 4px 24px rgba(0, 0, 0, 0.08)) drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.08));
-    padding: 18px 24px 18px 20px;
-    cursor: default;
-}
-
-.wallet__tooltip::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0px;
-    height: 0px;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid var(--background-suggestions);
-}
-  
-.wallet__tooltip__row {
-    background: none;
-    border: none;
-    display: flex;
-    align-items: center;
-    flex-direction: row;
-    justify-content: stretch;
-    font-size: 16px;
-    gap: 0 8px;
-    padding: 6px;
-
-    color: var(--text-primary);
-
-    width: 100%;
-
-    font-weight: 600;
-    font-size: 16px;
-    line-height: 24px;
-
-    cursor: pointer;
-}
-
-.wallet__tooltip__row:hover {
-    color: var(--accent-default);  
-}
-
-.wallet__tooltip__row svg {
-    color: var(--accent-default);
 }
 
 .wallet__modal {
@@ -1653,21 +1552,6 @@ p {
     background-color: var(--wallet-button-secondary-stroke);
     color: var(--text-primary);
     border: 1px solid var(--button-secondary-stroke);
-}
-
-
-.wallet__connect--menu:hover {
-    background-color: transparent;
-    color: var(--text-primary);
-}
-
-.wallet__connect--secondary:has(.wallet__tooltip:hover) {
-    background-color: var(--wallet-button-secondary-stroke);
-    color: var(--text-primary);
-}
-
-.wallet__connect--hidden {
-    display: none;
 }
 
 .wallet_modal--second__qr {
@@ -1796,16 +1680,6 @@ p {
 
     .wallet__modal--first__step, .wallet__modal--second__step {
         padding: 0;
-    }
-
-    .wallet__connect {
-        font-weight: 600;
-        font-size: 14px;
-        line-height: 24px;
-
-        padding: 6px 14px;
-        margin-right: 12px;
-        min-width: 112px;
     }
 
     .bid__modal--backdrop {
@@ -2058,6 +1932,12 @@ p {
     line-height: 20px;
     text-align: right;
     color: var(--text-tetriary);
+}
+
+/* TODO: вернуть при подключении ICE/USD price endpoint */
+.converted__price,
+#bid__input--converted__price {
+    display: none !important;
 }
 
 .converted__price:before {
@@ -2733,6 +2613,14 @@ tc-root * {
     font-family: Inter, Helvetica, Arial, sans-serif !important;
 }
 
+#connect-wallet-button [data-tc-button] {
+    display: inline-flex !important;
+}
+
+#connect-wallet-button [data-tc-button] svg {
+    display: inline-block !important;
+}
+
 
 [data-tc-connect-button="true"] {
     box-shadow: none !important;
@@ -2971,14 +2859,6 @@ a.edit-btn:hover {
 .loading--animation svg {
     animation: rotating 1s linear infinite;
 }
-
-@media screen and (max-width: 568px) { 
-    .wallet__connect svg {
-        width: 20px;
-        height: 20px;
-    }
-}
-
 
 @keyframes rotating {
     from {
