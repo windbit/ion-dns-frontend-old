@@ -2618,7 +2618,7 @@ tc-root * {
 }
 
 #connect-wallet-button [data-tc-button] svg {
-    display: inline-block !important;
+    display: none !important;
 }
 
 
