@@ -65,15 +65,15 @@ const shortAddress = (address) => {
 // Цены в ION (start, end). Соответствуют ion-dns-contract/contracts/dns-utils.fc get_min_price_config.
 const getMinPriceConfig = (domainCharCount) => {
     switch (domainCharCount) {
-        case 4: return ['100000', '10000'];
-        case 5: return ['50000', '5000'];
-        case 6: return ['40000', '4000'];
-        case 7: return ['30000', '3000'];
-        case 8: return ['20000', '2000'];
-        case 9: return ['10000', '1000'];
-        case 10: return ['5000', '500'];
+        case 4: return ['50000', '10000'];
+        case 5: return ['25000', '5000'];
+        case 6: return ['20000', '4000'];
+        case 7: return ['15000', '3000'];
+        case 8: return ['10000', '2000'];
+        case 9: return ['5000', '1000'];
+        case 10: return ['2500', '500'];
         default:
-            return ['1000', '100'];
+            return ['500', '100'];
     }
 }
 

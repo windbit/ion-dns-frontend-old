@@ -2,7 +2,7 @@ ION_RPC_ENDPOINT = 'https://api.mainnet.ice.io/http/v2/jsonRPC'
 
 ION_RPC_API_KEY = ''
 
-ION_DNS_COLLECTION_ADDRESS = 'EQDzBXQipGwp22WbLEA75bPW1fhHRLA7gMW0adlVnUgRqQqW'
+ION_DNS_COLLECTION_ADDRESS = 'EQD-T0TFfemKkgq2GCuKfsuCJhs56wVDfqXSCi65TrzZFb5E'
 
 ION_EXPLORER_ENDPOINT = 'https://explorer.ice.io'
 
